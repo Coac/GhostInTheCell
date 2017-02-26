@@ -46,6 +46,7 @@ struct Troop {
 fn main() {
     let mut factory_distance: HashMap<(i32, i32), i32> = HashMap::new();
     let mut factories: HashMap<i32, Factory> = HashMap::new();
+    let mut bomb_count = 2;
 
     let mut input_line = String::new();
     io::stdin().read_line(&mut input_line).unwrap();
@@ -140,25 +141,27 @@ fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut HashMap<i32, Fa
 }
 
 fn max_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String>) {
-    let mut id1 = -999;
-    let mut cyborg_count = -999;
+    let mut max_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new()};
 
     // Get max
     for (id, factory) in factories.iter() {
-        if factory.owner == 1 && factory.cyborg_count > cyborg_count {
-            id1 = factory.id;
-            cyborg_count = factory.cyborg_count;
+        if factory.owner == 1 && factory.cyborg_count > max_factory.cyborg_count {
+            max_factory = factory;
         }
     }
 
-    print_err!("{}  {}", id1, cyborg_count);
+    print_err!("Ordering {}  {}", max_factory.id, max_factory.cyborg_count);
 
-    let factory = factories.get(&id1).unwrap();
-
-    for &(distance, id2) in factory.distances.iter() {
+    // Closest factory
+    for &(distance, id2) in max_factory.distances.iter() {
         let factory2 = factories.get(&id2).unwrap();
         if factory2.owner != 1 {
-            commands.push(format!("MOVE {} {} {}", id1, id2, cyborg_count - 1));
+            if max_factory.production > 0 {
+                commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
+            } else {
+                commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count - 1));
+            }
+
             break;
         }
     }
