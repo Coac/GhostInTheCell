@@ -59,38 +59,54 @@ fn main() {
     loop {
         let mut troops: LinkedList<Troop> = LinkedList::new();
         let mut factories: LinkedList<Factory> = LinkedList::new();
+        init_entities(&mut troops, &mut factories);
 
-        let mut input_line = String::new();
-        io::stdin().read_line(&mut input_line).unwrap();
-        let entity_count = parse_input!(input_line, i32); // the number of entities (e.g. factories and troops)
-        for i in 0..entity_count as usize {
-            let mut input_line = String::new();
-            io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
-            let entity_id = parse_input!(inputs[0], i32);
-            let entity_type = inputs[1].trim().to_string();
-            let arg_1 = parse_input!(inputs[2], i32);
-            let arg_2 = parse_input!(inputs[3], i32);
-            let arg_3 = parse_input!(inputs[4], i32);
-            let arg_4 = parse_input!(inputs[5], i32);
-            let arg_5 = parse_input!(inputs[6], i32);
 
-            match entity_type.as_ref() {
-                "FACTORY" => factories.push_back(Factory{id: entity_id, owner: arg_1, cyborg_count: arg_2, production: arg_3}),
-                "TROOP" => troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5}),
-                _ => print_err!("???????")
+        let mut id1 = 0;
+        let mut id2 = 0;
+        let mut cyborg_count = 0;
+        for factory in factories.iter() {
+            if factory.owner == 1 {
+                id1 = factory.id;
+                cyborg_count = factory.cyborg_count;
             }
-
-
+            if factory.owner == 0 {
+                id2 = factory.id;
+            }
+            //print_err!("{} {} {} {}", factory.id, factory.owner, factory.cyborg_count, factory.production);
         }
-        
-        }
+
 
         // Write an action using println!("message...");
         // To debug: print_err!("Debug message...");
 
 
         // Any valid action, such as "WAIT" or "MOVE source destination cyborgs"
-        println!("WAIT");
+        println!("MOVE {} {} {}", id1, id2, cyborg_count);
+        //println!("WAIT");
+    }
+}
+
+fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut LinkedList<Factory>) {
+    let mut input_line = String::new();
+    io::stdin().read_line(&mut input_line).unwrap();
+    let entity_count = parse_input!(input_line, i32); // the number of entities (e.g. factories and troops)
+    for i in 0..entity_count as usize {
+        let mut input_line = String::new();
+        io::stdin().read_line(&mut input_line).unwrap();
+        let inputs = input_line.split(" ").collect::<Vec<_>>();
+        let entity_id = parse_input!(inputs[0], i32);
+        let entity_type = inputs[1].trim().to_string();
+        let arg_1 = parse_input!(inputs[2], i32);
+        let arg_2 = parse_input!(inputs[3], i32);
+        let arg_3 = parse_input!(inputs[4], i32);
+        let arg_4 = parse_input!(inputs[5], i32);
+        let arg_5 = parse_input!(inputs[6], i32);
+
+        match entity_type.as_ref() {
+            "FACTORY" => factories.push_back(Factory{id: entity_id, owner: arg_1, cyborg_count: arg_2, production: arg_3}),
+            "TROOP" => troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5}),
+            _ => print_err!("???????")
+        }
     }
 }
