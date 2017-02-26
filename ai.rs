@@ -78,16 +78,7 @@ fn main() {
         swarm_strategy(&mut factories, &mut commands);
         print_factories(&factories);
 
-        if commands.len() > 0 {
-            let mut final_command = "WAIT".to_string();
-            for command in commands.iter() {
-                final_command.push_str(";");
-                final_command.push_str(&command);
-            }
-            println!("{}", final_command);
-        } else {
-            println!("WAIT");
-        }
+        print_commands(&commands);
 
 
         let elapsed = start.elapsed();
@@ -168,5 +159,18 @@ fn swarm_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<Stri
 fn print_factories(factories: &HashMap<i32, Factory>) {
     for (id, factory) in factories.iter() {
         print_err!("{} {} {} {}", factory.id, factory.owner, factory.cyborg_count, factory.production);
+    }
+}
+
+fn print_commands(commands: &Vec<String>) {
+    if commands.len() > 0 {
+        let mut final_command = "MSG El Psy Congroo".to_string();
+        for command in commands.iter() {
+            final_command.push_str(";");
+            final_command.push_str(&command);
+        }
+        println!("{}", final_command);
+    } else {
+        println!("WAIT");
     }
 }
