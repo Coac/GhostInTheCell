@@ -2,6 +2,8 @@ use std::io;
 use std::collections::HashMap;
 use std::collections::LinkedList;
 use std::fmt;
+use std::time::Instant;
+
 
 macro_rules! print_err {
     ($($arg:tt)*) => (
@@ -66,30 +68,46 @@ fn main() {
 
     // game loop
     loop {
+        let start = Instant::now();
+
         let mut troops: LinkedList<Troop> = LinkedList::new();
         init_entities(&mut troops, &mut factories);
+        let mut commands = Vec::new();
 
 
-        let mut id1 = -1;
-        let mut id2 = 0;
-        let mut cyborg_count = 0;
         for (id, factory) in factories.iter() {
-            if factory.owner == 1 && factory.cyborg_count > 10{
-                id1 = factory.id;
-                cyborg_count = factory.cyborg_count;
+            if factory.owner == 1 && factory.cyborg_count > factory_count -1 {
+                let mut id1 = factory.id;
+                let mut cyborg_count = factory.cyborg_count;
+
+                for (id, factory2) in factories.iter() {
+                    if factory2.owner != 1 {
+                         let mut id2 = factory2.id;
+                        commands.push(format!("MOVE {} {} {}", id1, id2, 1));
+                    }
+                }
             }
-            if factory.owner == 0 {
-                id2 = factory.id;
-            }
+
+
+
             print_err!("{} {} {} {}", factory.id, factory.owner, factory.cyborg_count, factory.production);
         }
 
-        if id1 != -1 && id1 != id2 {
-            println!("MOVE {} {} {}", id1, id2, cyborg_count);
+        if commands.len() > 0 {
+            let mut final_command = "WAIT".to_string();
+            for command in commands.iter() {
+                final_command.push_str(";");
+                final_command.push_str(&command);
+            }
+            println!("{}", final_command);
         } else {
             println!("WAIT");
         }
 
+
+        let elapsed = start.elapsed();
+        print_err!("Elapsed: {} ms",
+             (elapsed.as_secs() * 1_000) + (elapsed.subsec_nanos() / 1_000_000) as u64);
     }
 }
 
