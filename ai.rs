@@ -21,7 +21,14 @@ struct Factory {
     id: i32,
     owner: i32,
     cyborg_count: i32,
-    production: i32
+    production: i32,
+    distances: Vec<(i32, i32)> // (distance, id)
+}
+
+impl Factory {
+    fn up(&mut self) {
+        self.owner += 1;
+    }
 }
 
 struct Troop {
@@ -53,8 +60,9 @@ fn main() {
         let distance = parse_input!(inputs[2], i32);
 
         factory_distance.insert((factory_1, factory_2), distance);
-        print_err!("{:?}", factory_distance.get(&(factory_1, factory_2)))
     }
+    init_factories_distance(factory_count, &mut factories, &factory_distance);
+
 
     // game loop
     loop {
@@ -76,18 +84,36 @@ fn main() {
             print_err!("{} {} {} {}", factory.id, factory.owner, factory.cyborg_count, factory.production);
         }
 
-
-        // Write an action using println!("message...");
-        // To debug: print_err!("Debug message...");
-
-
-        // Any valid action, such as "WAIT" or "MOVE source destination cyborgs"
         if id1 != -1 && id1 != id2 {
             println!("MOVE {} {} {}", id1, id2, cyborg_count);
         } else {
             println!("WAIT");
         }
 
+    }
+}
+
+fn init_factories_distance(factory_count: i32, factories: &mut HashMap<i32, Factory>, factory_distance: &HashMap<(i32, i32), i32>) {
+    for i in 0..factory_count as i32 {
+        let mut distances: Vec<(i32, i32)> = Vec::new();
+        for (&(id1, id2), distance) in factory_distance.iter() {
+            if id1 == i {
+                distances.push((*distance, id2));
+            } else if id2 == i {
+                distances.push((*distance, id1));
+            }
+
+        }
+
+
+        distances.sort();
+        for &(id1, id2) in distances.iter() {
+            print_err!("Distance:{} Id:{}", id1, id2);
+        }
+
+        print_err!("---------");
+
+        factories.insert(i, Factory{id: i, owner: -99, cyborg_count: -99, production: -99, distances: distances});
     }
 }
 
@@ -108,7 +134,10 @@ fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut HashMap<i32, Fa
         let arg_5 = parse_input!(inputs[6], i32);
 
         if entity_type == "FACTORY" {
-            factories.insert(entity_id, Factory{id: entity_id, owner: arg_1, cyborg_count: arg_2, production: arg_3});
+            let mut factory = factories.get_mut(&entity_id).unwrap();
+            factory.owner = arg_1;
+            factory.cyborg_count = arg_2;
+            factory.production = arg_3;
         } else {
             troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5});
         }
