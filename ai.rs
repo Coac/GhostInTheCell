@@ -65,7 +65,9 @@ impl HasOwner for Troop {
 fn main() {
     let mut factory_distance: HashMap<(i32, i32), i32> = HashMap::new();
     let mut factories: HashMap<i32, Factory> = HashMap::new();
-    let mut bomb_count = 2;
+
+    let mut bomb_count: i32 = 2;
+    let mut bomb_last: i32 = -99;
 
     let mut input_line = String::new();
     io::stdin().read_line(&mut input_line).unwrap();
@@ -96,6 +98,7 @@ fn main() {
 
 
         max_strategy(&mut factories, &mut commands);
+        compute_bomb(&mut bomb_count, &mut bomb_last, &mut factories, &mut commands);
         print_factories(&factories);
 
         print_commands(&commands);
@@ -105,6 +108,36 @@ fn main() {
         print_err!("Elapsed: {} ms",
              (elapsed.as_secs() * 1_000) + (elapsed.subsec_nanos() / 1_000_000) as u64);
     }
+}
+
+
+fn compute_bomb(bomb_count: &mut i32, bomb_last: &mut i32, factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String>) {
+    print_err!("BOMB COUNT {}", *bomb_count);
+
+    if *bomb_count == 0 { return }
+
+    // Get the target
+    let mut aimed_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new()};
+    for (id, factory) in factories.iter() {
+        if factory.is_enemy() && factory.cyborg_count > aimed_factory.cyborg_count && factory.production > 2 && *bomb_last != factory.id {
+            aimed_factory = factory;
+        }
+    }
+
+    if aimed_factory.id < 0 { return }
+
+    // Get the source (the closest)
+    for &(distance, id2) in aimed_factory.distances.iter() {
+        let factory2 = factories.get(&id2).unwrap();
+        if factory2.is_player() {
+            *bomb_count -= 1;
+            *bomb_last = aimed_factory.id;
+            commands.push(format!("BOMB {} {}", id2, aimed_factory.id));
+            return;
+        }
+    }
+
+
 }
 
 fn init_factories_distance(factory_count: i32, factories: &mut HashMap<i32, Factory>, factory_distance: &HashMap<(i32, i32), i32>) {
