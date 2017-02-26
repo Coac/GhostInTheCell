@@ -75,7 +75,7 @@ fn main() {
         let mut commands = Vec::new();
 
 
-        swarm_strategy(&mut factories, &mut commands);
+        max_strategy(&mut factories, &mut commands);
         print_factories(&factories);
 
         print_commands(&commands);
@@ -139,6 +139,31 @@ fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut HashMap<i32, Fa
     }
 }
 
+fn max_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String>) {
+    let mut id1 = -999;
+    let mut cyborg_count = -999;
+
+    // Get max
+    for (id, factory) in factories.iter() {
+        if factory.owner == 1 && factory.cyborg_count > cyborg_count {
+            id1 = factory.id;
+            cyborg_count = factory.cyborg_count;
+        }
+    }
+
+    print_err!("{}  {}", id1, cyborg_count);
+
+    let factory = factories.get(&id1).unwrap();
+
+    for &(distance, id2) in factory.distances.iter() {
+        let factory2 = factories.get(&id2).unwrap();
+        if factory2.owner != 1 {
+            commands.push(format!("MOVE {} {} {}", id1, id2, cyborg_count));
+            break;
+        }
+    }
+}
+
 fn swarm_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String>) {
     for (id, factory) in factories.iter() {
         if factory.owner == 1 && factory.cyborg_count > factories.len() as i32 {
@@ -147,7 +172,7 @@ fn swarm_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<Stri
 
             for (id, factory2) in factories.iter() {
                 if factory2.owner != 1 {
-                     let mut id2 = factory2.id;
+                    let mut id2 = factory2.id;
                     commands.push(format!("MOVE {} {} {}", id1, id2, 1));
                 }
             }
