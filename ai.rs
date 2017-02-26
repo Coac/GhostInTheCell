@@ -158,7 +158,7 @@ fn max_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String
     for &(distance, id2) in factory.distances.iter() {
         let factory2 = factories.get(&id2).unwrap();
         if factory2.owner != 1 {
-            commands.push(format!("MOVE {} {} {}", id1, id2, cyborg_count));
+            commands.push(format!("MOVE {} {} {}", id1, id2, cyborg_count - 1));
             break;
         }
     }
