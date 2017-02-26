@@ -27,10 +27,25 @@ struct Factory {
     distances: Vec<(i32, i32)> // (distance, id)
 }
 
-impl Factory {
-    fn up(&mut self) {
-        self.owner += 1;
+trait HasOwner {
+    fn get_owner(&self) -> i32;
+
+
+    fn is_player(&self) -> bool {
+        return self.get_owner() == 1;
     }
+
+    fn is_enemy(&self) -> bool {
+        return self.get_owner() == -1;
+    }
+
+    fn is_neutral(&self) -> bool {
+        return self.get_owner() == 0;
+    }
+}
+
+impl HasOwner for Factory {
+    fn get_owner(&self) -> i32 { self.owner }
 }
 
 struct Troop {
@@ -40,6 +55,10 @@ struct Troop {
     factory_end: i32,
     cyborg_count: i32,
     turn_remaining: i32
+}
+
+impl HasOwner for Troop {
+    fn get_owner(&self) -> i32 { self.owner }
 }
 
 
@@ -145,7 +164,7 @@ fn max_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String
 
     // Get max
     for (id, factory) in factories.iter() {
-        if factory.owner == 1 && factory.cyborg_count > max_factory.cyborg_count {
+        if factory.is_player() && factory.cyborg_count > max_factory.cyborg_count {
             max_factory = factory;
         }
     }
@@ -155,7 +174,7 @@ fn max_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String
     // Closest factory
     for &(distance, id2) in max_factory.distances.iter() {
         let factory2 = factories.get(&id2).unwrap();
-        if factory2.owner != 1 {
+        if !factory2.is_player() && factory2.production > 0 {
             if max_factory.production > 0 {
                 commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
             } else {
@@ -169,12 +188,12 @@ fn max_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String
 
 fn swarm_strategy(factories: &mut HashMap<i32, Factory>, commands: &mut Vec<String>) {
     for (id, factory) in factories.iter() {
-        if factory.owner == 1 && factory.cyborg_count > factories.len() as i32 {
+        if factory.is_player() && factory.cyborg_count > factories.len() as i32 {
             let mut id1 = factory.id;
             let mut cyborg_count = factory.cyborg_count;
 
             for (id, factory2) in factories.iter() {
-                if factory2.owner != 1 {
+                if !factory2.is_player() {
                     let mut id2 = factory2.id;
                     commands.push(format!("MOVE {} {} {}", id1, id2, 1));
                 }
