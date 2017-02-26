@@ -36,6 +36,7 @@ struct Troop {
 
 fn main() {
     let mut factory_distance: HashMap<(i32, i32), i32> = HashMap::new();
+    let mut factories: HashMap<i32, Factory> = HashMap::new();
 
     let mut input_line = String::new();
     io::stdin().read_line(&mut input_line).unwrap();
@@ -58,22 +59,21 @@ fn main() {
     // game loop
     loop {
         let mut troops: LinkedList<Troop> = LinkedList::new();
-        let mut factories: LinkedList<Factory> = LinkedList::new();
         init_entities(&mut troops, &mut factories);
 
 
-        let mut id1 = 0;
+        let mut id1 = -1;
         let mut id2 = 0;
         let mut cyborg_count = 0;
-        for factory in factories.iter() {
-            if factory.owner == 1 {
+        for (id, factory) in factories.iter() {
+            if factory.owner == 1 && factory.cyborg_count > 10{
                 id1 = factory.id;
                 cyborg_count = factory.cyborg_count;
             }
             if factory.owner == 0 {
                 id2 = factory.id;
             }
-            //print_err!("{} {} {} {}", factory.id, factory.owner, factory.cyborg_count, factory.production);
+            print_err!("{} {} {} {}", factory.id, factory.owner, factory.cyborg_count, factory.production);
         }
 
 
@@ -82,12 +82,16 @@ fn main() {
 
 
         // Any valid action, such as "WAIT" or "MOVE source destination cyborgs"
-        println!("MOVE {} {} {}", id1, id2, cyborg_count);
-        //println!("WAIT");
+        if id1 != -1 && id1 != id2 {
+            println!("MOVE {} {} {}", id1, id2, cyborg_count);
+        } else {
+            println!("WAIT");
+        }
+
     }
 }
 
-fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut LinkedList<Factory>) {
+fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut HashMap<i32, Factory>) {
     let mut input_line = String::new();
     io::stdin().read_line(&mut input_line).unwrap();
     let entity_count = parse_input!(input_line, i32); // the number of entities (e.g. factories and troops)
@@ -103,10 +107,11 @@ fn init_entities(troops: &mut LinkedList<Troop>, factories: &mut LinkedList<Fact
         let arg_4 = parse_input!(inputs[5], i32);
         let arg_5 = parse_input!(inputs[6], i32);
 
-        match entity_type.as_ref() {
-            "FACTORY" => factories.push_back(Factory{id: entity_id, owner: arg_1, cyborg_count: arg_2, production: arg_3}),
-            "TROOP" => troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5}),
-            _ => print_err!("???????")
+        if entity_type == "FACTORY" {
+            factories.insert(entity_id, Factory{id: entity_id, owner: arg_1, cyborg_count: arg_2, production: arg_3});
+        } else {
+            troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5});
         }
+
     }
 }
