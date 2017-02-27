@@ -73,6 +73,7 @@ struct GameState {
     bomb_last: i32
 }
 
+
 impl GameState {
     fn new() -> GameState {
         GameState {
@@ -109,6 +110,8 @@ impl GameState {
     }
 
     fn init_entities(&mut self) {
+        self.troops = LinkedList::new();
+
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
         let entity_count = parse_input!(input_line, i32); // the number of entities (e.g. factories and troops)
@@ -129,7 +132,7 @@ impl GameState {
                 factory.owner = arg_1;
                 factory.cyborg_count = arg_2;
                 factory.production = arg_3;
-            } else {
+            } else if entity_type == "TROOP" {
                 self.troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5});
             }
 
@@ -230,6 +233,61 @@ impl GameState {
         self.commands = Vec::new();
     }
 
+    fn evaluate(&mut self) -> i32 {
+        let mut score: i32 = 0;
+
+        // Cyborg in factories
+        for (id, factory) in self.factories.iter() {
+            if factory.is_player() {
+                score += factory.cyborg_count;
+                score += factory.production * 10;
+            } else if factory.is_enemy() {
+                score -= factory.cyborg_count;
+                score -= factory.production * 10;
+            }
+
+        }
+
+        // Cyborg in troops
+        for troop in self.troops.iter() {
+            if troop.is_player() {
+                score += troop.cyborg_count;
+            } else if troop.is_enemy() {
+                score -= troop.cyborg_count;
+            }
+
+        }
+
+        // Factories that will be catpured
+        for (id, factory) in self.factories.iter() {
+            let mut cyborg_count: i32 = factory.cyborg_count * factory.owner;
+            for troop in self.troops.iter() {
+                if factory.id == troop.factory_end {
+                    cyborg_count += troop.cyborg_count * troop.owner;
+                }
+
+            }
+
+            if cyborg_count > 0 {
+                score += factory.production * 10;
+            } else if cyborg_count < 0 {
+                score -= factory.production * 10;
+            }
+
+        }
+
+        print_err!("Score : {}", score);
+        return score;
+    }
+
+    fn test(&mut self) {
+        let mut fac = self.clone();
+
+        fac.commands = Vec::new();
+
+    }
+
+
 
 }
 
@@ -264,8 +322,14 @@ fn main() {
 
         game_state.max_strategy();
         game_state.compute_bomb();
-        game_state.print_factories();
+       // game_state.print_factories();
+
+        game_state.evaluate();
+        
+        game_state.test();
+
         game_state.print_commands();
+
 
         let elapsed = start.elapsed();
         print_err!("Elapsed: {} ms",
