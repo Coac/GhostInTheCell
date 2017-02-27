@@ -18,7 +18,7 @@ macro_rules! parse_input {
     ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
 }
 
-
+#[derive(Clone)]
 struct Factory {
     id: i32,
     owner: i32,
@@ -48,6 +48,7 @@ impl HasOwner for Factory {
     fn get_owner(&self) -> i32 { self.owner }
 }
 
+#[derive(Clone)]
 struct Troop {
     id: i32,
     owner: i32,
@@ -61,6 +62,8 @@ impl HasOwner for Troop {
     fn get_owner(&self) -> i32 { self.owner }
 }
 
+
+#[derive(Clone)]
 struct GameState {
     factory_distance: HashMap<(i32, i32), i32>,
     factories: HashMap<i32, Factory>,
