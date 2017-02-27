@@ -141,14 +141,13 @@ impl GameState {
     }
 
     fn max_strategy(&mut self) {
-        let mut max_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new()};
+        let max_factory_option = self.factories.iter()
+            .filter(|&(ind, fac)| fac.is_player())
+            .max_by_key(|&(ind, fac)| fac.cyborg_count);
 
-        // Get max
-        for (id, factory) in self.factories.iter() {
-            if factory.is_player() && factory.cyborg_count > max_factory.cyborg_count {
-                max_factory = factory;
-            }
-        }
+        if !max_factory_option.is_some() { return }
+
+        let mut max_factory = max_factory_option.unwrap().1;
 
         print_err!("Ordering {}  {}", max_factory.id, max_factory.cyborg_count);
 
