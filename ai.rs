@@ -24,7 +24,8 @@ struct Factory {
     owner: i32,
     cyborg_count: i32,
     production: i32,
-    distances: Vec<(i32, i32)> // (distance, id)
+    distances: Vec<(i32, i32)>, // (distance, id)
+    cyborg_count_combat: i32
 }
 
 trait HasOwner {
@@ -105,12 +106,12 @@ impl GameState {
 
             print_err!("---------");
 
-            self.factories.insert(i, Factory{id: i, owner: -99, cyborg_count: -99, production: -99, distances: distances});
+            self.factories.insert(i, Factory{id: i, owner: -99, cyborg_count: -99, production: -99, distances: distances, cyborg_count_combat: 0});
         }
     }
 
     fn init_entities(&mut self) {
-        self.troops = LinkedList::new();
+        self.troops.clear();
 
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
@@ -189,7 +190,7 @@ impl GameState {
         if self.bomb_count == 0 { return }
 
         // Get the target
-        let mut aimed_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new()};
+        let mut aimed_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new(), cyborg_count_combat: 0};
         for (id, factory) in self.factories.iter() {
             if factory.is_enemy() && factory.cyborg_count > aimed_factory.cyborg_count && factory.production > 2 && self.bomb_last != factory.id {
                 aimed_factory = factory;
@@ -229,7 +230,7 @@ impl GameState {
             println!("WAIT");
         }
 
-        self.commands = Vec::new();
+        self.commands.clear();
     }
 
     fn evaluate(&mut self) -> i32 {
@@ -286,6 +287,72 @@ impl GameState {
 
     }
 
+    fn sim_next_turn(&mut self) {
+        // Troops Moving
+        for troop in self.troops.iter_mut() {
+            troop.turn_remaining -= 1;
+            if troop.turn_remaining == 0 {
+                let mut factory = self.factories.get_mut(&troop.factory_end).unwrap();
+
+                if factory.owner == troop.owner {
+                    factory.cyborg_count += troop.cyborg_count
+                } else {
+                    factory.cyborg_count_combat += troop.cyborg_count * troop.owner;
+                }
+
+            }
+        }
+        self.troops = self.troops.iter()
+            .filter(|troop| troop.turn_remaining > 0)
+            .map(|troop| troop.clone())
+            .collect();
+
+        // Orders Execution
+
+
+        // Production & Combat
+        for (id, factory) in self.factories.iter_mut() {
+            // Production
+            if !factory.is_neutral() && factory.cyborg_count > 0 {
+                factory.cyborg_count += factory.production;
+            }
+
+            // Combat
+            if factory.cyborg_count_combat != 0 {
+                if factory.is_neutral() {
+                    if factory.cyborg_count_combat < 0 {
+                        factory.cyborg_count += factory.cyborg_count_combat;
+                        if factory.cyborg_count < 0 {
+                            factory.owner = -1;
+                            factory.cyborg_count *= -1;
+                        }
+                    } else {
+                        factory.cyborg_count -= factory.cyborg_count_combat;
+                        if factory.cyborg_count < 0 {
+                            factory.owner = 1;
+                            factory.cyborg_count *= -1;
+                        }
+                    }
+                } else {
+                    factory.cyborg_count = factory.cyborg_count * factory.owner + factory.cyborg_count_combat;
+                    if factory.cyborg_count < 0 {
+                        factory.cyborg_count *= -1;
+                        factory.owner = -1;
+                    } else {
+                        factory.owner = 1;
+                    }
+                }
+
+                factory.cyborg_count_combat = 0;
+            }
+        }
+
+        // Bombs
+
+
+
+    }
+
 
 
 }
@@ -323,11 +390,14 @@ fn main() {
         game_state.compute_bomb();
        // game_state.print_factories();
 
-        game_state.evaluate();
-        
         game_state.test();
 
+        game_state.evaluate();
+
         game_state.print_commands();
+
+        game_state.sim_next_turn();
+        game_state.evaluate();
 
 
         let elapsed = start.elapsed();
