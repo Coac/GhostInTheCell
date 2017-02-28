@@ -192,6 +192,31 @@ impl GameState {
 
     }
 
+    fn neutral_first_strategy(&mut self) {
+        let factories_immu = self.factories.clone();
+        for (id, factory) in self.factories.iter_mut() {
+
+            if factory.is_player() {
+                for &(distance, id2) in factory.distances.iter() {
+                    let factory2 = factories_immu.get(&id2).unwrap();
+                    if factory2.production > 0 {
+
+                        if factory2.is_neutral() && factory2.cyborg_count < factory.cyborg_remaining {
+                            self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: factory2.id, cyborg_count: factory2.cyborg_count +1, turn_remaining: distance});
+                            factory.cyborg_remaining -= factory2.cyborg_count +1;
+                        }
+                    }
+                }
+            }
+
+        }
+
+        if self.troop_commands.len() == 0 {
+            self.max_strategy();
+        }
+
+    }
+
     fn swarm_strategy(&mut self) {
         for (id, factory) in self.factories.iter() {
             if factory.is_player() && factory.cyborg_count > self.factories.len() as i32 {
@@ -423,7 +448,7 @@ fn main() {
 
         game_state.init_entities();
 
-
+        /*
         let mut max_game = game_state.clone();
         let mut max_score = game_state.evaluate();
         for i in 0..1000 {
@@ -443,11 +468,16 @@ fn main() {
             if elapsed.subsec_nanos() / 1_000_000 > 49 { break }
         }
 
-       // game_state.max_strategy();
+
         max_game.compute_bomb();
         max_game.print_commands();
 
         game_state = max_game;
+
+        */
+        game_state.neutral_first_strategy();
+        game_state.compute_bomb();
+        game_state.print_commands();
 
 
         let elapsed = start.elapsed();
