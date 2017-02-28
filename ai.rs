@@ -4,7 +4,6 @@ use std::collections::LinkedList;
 use std::fmt;
 use std::time::Instant;
 
-
 macro_rules! print_err {
     ($($arg:tt)*) => (
         {
@@ -26,7 +25,8 @@ struct Factory {
     cyborg_count: i32,
     production: i32,
     distances: Vec<(i32, i32)>, // (distance, id)
-    cyborg_count_combat: i32
+    cyborg_count_combat: i32,
+    cyborg_remaining: i32 // For random strategy
 }
 
 trait HasOwner {
@@ -74,6 +74,7 @@ struct GameState {
     bomb_count: i32,
     bomb_last: i32,
     troop_commands: LinkedList<Troop>,
+    start: Instant
 }
 
 
@@ -86,7 +87,8 @@ impl GameState {
             commands: Vec::new(),
             bomb_count: 2,
             bomb_last: -99,
-            troop_commands: LinkedList::new()
+            troop_commands: LinkedList::new(),
+            start: Instant::now()
         }
     }
 
@@ -109,7 +111,7 @@ impl GameState {
 
             print_err!("---------");
 
-            self.factories.insert(i, Factory{id: i, owner: -99, cyborg_count: -99, production: -99, distances: distances, cyborg_count_combat: 0});
+            self.factories.insert(i, Factory{id: i, owner: -99, cyborg_count: -99, production: -99, distances: distances, cyborg_count_combat: 0, cyborg_remaining: 0});
         }
     }
 
@@ -136,10 +138,33 @@ impl GameState {
                 factory.owner = arg_1;
                 factory.cyborg_count = arg_2;
                 factory.production = arg_3;
+                factory.cyborg_remaining = factory.cyborg_count;
             } else if entity_type == "TROOP" {
                 self.troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5});
             }
 
+        }
+
+    }
+
+    fn random_strategy(&mut self) {
+        let factory_count: i32 = self.factories.len() as i32;
+        for (id, factory) in  &mut self.factories {
+            if !factory.is_player() { continue }
+
+            let cyborg_count = rnd_range(self.start, factory.cyborg_remaining + 1);
+
+            if cyborg_count == 0 { continue }
+
+            factory.cyborg_remaining -= cyborg_count;
+
+            let mut target = rnd_range(self.start, factory_count);
+
+            while target == factory.id {
+                target = rnd_range(self.start, factory_count);
+            }
+
+            self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: target, cyborg_count: cyborg_count, turn_remaining: 10});
         }
 
     }
@@ -159,7 +184,7 @@ impl GameState {
         for &(distance, id2) in max_factory.distances.iter() {
             let factory2 = self.factories.get(&id2).unwrap();
             if !factory2.is_player() && factory2.production > 0 {
-                self.commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
+                //self.commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
                 self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: max_factory.id, factory_end: id2, cyborg_count: max_factory.cyborg_count, turn_remaining: distance});
                 break;
             }
@@ -184,12 +209,10 @@ impl GameState {
     }
 
     fn compute_bomb(&mut self) {
-        print_err!("BOMB COUNT {}", self.bomb_count);
-
         if self.bomb_count == 0 { return }
 
         // Get the target
-        let mut aimed_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new(), cyborg_count_combat: 0};
+        let mut aimed_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new(), cyborg_count_combat: 0, cyborg_remaining: 0};
         for (id, factory) in self.factories.iter() {
             if factory.is_enemy() && factory.cyborg_count > aimed_factory.cyborg_count && factory.production > 2 && self.bomb_last != factory.id {
                 aimed_factory = factory;
@@ -218,17 +241,21 @@ impl GameState {
     }
 
     fn print_commands(&mut self) {
-        if self.commands.len() > 0 {
-            let mut final_command = "MSG El Psy Congroo".to_string();
-            for command in self.commands.iter() {
-                final_command.push_str(";");
-                final_command.push_str(&command);
-            }
-            println!("{}", final_command);
-        } else {
-            println!("WAIT");
+
+        let mut final_command = "MSG El Psy Congroo".to_string();
+        for command in self.commands.iter() {
+            final_command.push_str(";");
+            final_command.push_str(&command);
         }
 
+        for troop in self.troop_commands.iter() {
+            final_command.push_str(";");
+            final_command.push_str(&format!("MOVE {} {} {}", troop.factory_start, troop.factory_end, troop.cyborg_count));
+        }
+
+        println!("{}", final_command);
+
+        self.troop_commands.clear();
         self.commands.clear();
     }
 
@@ -311,9 +338,12 @@ impl GameState {
             let mut factory = self.factories.get_mut(&troop.factory_start).unwrap();
             factory.cyborg_count -= troop.cyborg_count;
         }
-        self.troops.append(&mut self.troop_commands);
-        self.troop_commands.clear();
 
+        for troop in self.troop_commands.iter_mut() {
+            self.troops.push_back(troop.clone());
+        }
+        //self.troops.extend(self.troop_commands.iter());
+        //self.troops.append(&mut self.troop_commands);
 
         // Production & Combat
         for (id, factory) in self.factories.iter_mut() {
@@ -361,6 +391,10 @@ impl GameState {
 }
 
 
+fn rnd_range(start: Instant, max: i32) -> i32 {
+    return (start.elapsed().subsec_nanos() % max as u32) as i32;
+}
+
 fn main() {
     let mut game_state: GameState = GameState::new();
 
@@ -389,26 +423,36 @@ fn main() {
 
         game_state.init_entities();
 
-        game_state.max_strategy();
-        game_state.compute_bomb();
-       // game_state.print_factories();
 
-        game_state.test();
-
-        game_state.evaluate();
-
-        game_state.print_commands();
-
-        let mut game_cloned = game_state.clone();
+        let mut max_game = game_state.clone();
+        let mut max_score = game_state.evaluate();
         for i in 0..1000 {
-            game_cloned.sim_next_turn();
-            game_cloned.evaluate();
-            game_cloned.max_strategy();
+            let mut game_cloned = game_state.clone();
+            game_cloned.random_strategy();
+            game_cloned.random_strategy();
+
+            let mut game_cloned_cloned = game_cloned.clone();
+            game_cloned_cloned.sim_next_turn();
+            let mut score = game_cloned_cloned.evaluate();
+            if score > max_score {
+                max_score = score;
+                max_game = game_cloned;
+            }
+
+            let elapsed = start.elapsed();
+            if elapsed.subsec_nanos() / 1_000_000 > 49 { break }
         }
+
+       // game_state.max_strategy();
+        max_game.compute_bomb();
+        max_game.print_commands();
+
+        game_state = max_game;
 
 
         let elapsed = start.elapsed();
         print_err!("Elapsed: {} ms",
              (elapsed.as_secs() * 1_000) + (elapsed.subsec_nanos() / 1_000_000) as u64);
+
     }
 }
