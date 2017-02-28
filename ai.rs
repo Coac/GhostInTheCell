@@ -18,6 +18,7 @@ macro_rules! parse_input {
     ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
 }
 
+
 #[derive(Clone)]
 struct Factory {
     id: i32,
@@ -71,7 +72,8 @@ struct GameState {
     troops: LinkedList<Troop>,
     commands: Vec<String>,
     bomb_count: i32,
-    bomb_last: i32
+    bomb_last: i32,
+    troop_commands: LinkedList<Troop>,
 }
 
 
@@ -83,7 +85,8 @@ impl GameState {
             troops: LinkedList::new(),
             commands: Vec::new(),
             bomb_count: 2,
-            bomb_last: -99
+            bomb_last: -99,
+            troop_commands: LinkedList::new()
         }
     }
 
@@ -150,18 +153,14 @@ impl GameState {
 
         let mut max_factory = max_factory_option.unwrap().1;
 
-        print_err!("Ordering {}  {}", max_factory.id, max_factory.cyborg_count);
+        //print_err!("Ordering {}  {}", max_factory.id, max_factory.cyborg_count);
 
         // Closest factory
         for &(distance, id2) in max_factory.distances.iter() {
             let factory2 = self.factories.get(&id2).unwrap();
             if !factory2.is_player() && factory2.production > 0 {
-                if max_factory.production > 0 {
-                    self.commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
-                } else {
-                    self.commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count - 1));
-                }
-
+                self.commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
+                self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: max_factory.id, factory_end: id2, cyborg_count: max_factory.cyborg_count, turn_remaining: distance});
                 break;
             }
         }
@@ -276,7 +275,7 @@ impl GameState {
 
         }
 
-        print_err!("Score : {}", score);
+        //print_err!("Score : {}", score);
         return score;
     }
 
@@ -308,12 +307,18 @@ impl GameState {
             .collect();
 
         // Orders Execution
+        for troop in self.troop_commands.iter_mut() {
+            let mut factory = self.factories.get_mut(&troop.factory_start).unwrap();
+            factory.cyborg_count -= troop.cyborg_count;
+        }
+        self.troops.append(&mut self.troop_commands);
+        self.troop_commands.clear();
 
 
         // Production & Combat
         for (id, factory) in self.factories.iter_mut() {
             // Production
-            if !factory.is_neutral() && factory.cyborg_count > 0 {
+            if !factory.is_neutral() {
                 factory.cyborg_count += factory.production;
             }
 
@@ -326,7 +331,7 @@ impl GameState {
                             factory.owner = -1;
                             factory.cyborg_count *= -1;
                         }
-                    } else {
+                    } else if factory.cyborg_count_combat > 0 {
                         factory.cyborg_count -= factory.cyborg_count_combat;
                         if factory.cyborg_count < 0 {
                             factory.owner = 1;
@@ -338,7 +343,7 @@ impl GameState {
                     if factory.cyborg_count < 0 {
                         factory.cyborg_count *= -1;
                         factory.owner = -1;
-                    } else {
+                    } else if factory.cyborg_count > 0 {
                         factory.owner = 1;
                     }
                 }
@@ -352,8 +357,6 @@ impl GameState {
 
 
     }
-
-
 
 }
 
@@ -396,8 +399,12 @@ fn main() {
 
         game_state.print_commands();
 
-        game_state.sim_next_turn();
-        game_state.evaluate();
+        let mut game_cloned = game_state.clone();
+        for i in 0..1000 {
+            game_cloned.sim_next_turn();
+            game_cloned.evaluate();
+            game_cloned.max_strategy();
+        }
 
 
         let elapsed = start.elapsed();
