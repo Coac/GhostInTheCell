@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::collections::LinkedList;
 use std::fmt;
 use std::time::Instant;
+extern crate rand;
+use rand::Rng;
 
 macro_rules! print_err {
     ($($arg:tt)*) => (
@@ -152,7 +154,7 @@ impl GameState {
         for (id, factory) in  &mut self.factories {
             if !factory.is_player() { continue }
 
-            let cyborg_count = rnd_range(self.start, factory.cyborg_remaining + 1);
+            let cyborg_count = rand::thread_rng().gen_range(0, factory.cyborg_remaining + 1);
 
             if cyborg_count == 0 { continue }
 
