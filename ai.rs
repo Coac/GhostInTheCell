@@ -253,6 +253,12 @@ impl GameState {
             if enemy_count >= factory.cyborg_count {
                 print_err!("Need defense id:{}", factory.id);
                 factory.cyborg_remaining = 0;
+            } else {
+                factory.cyborg_remaining -= enemy_count;
+                if factory.cyborg_remaining > 15 {
+                    factory.cyborg_remaining -= 10;
+                    self.commands.push(format!("INC {}", id));
+                }
             }
         }
 
