@@ -258,6 +258,7 @@ impl GameState {
 
         for (id, factory) in self.factories.iter() {
             if !factory.is_player() { continue }
+            if factory.production == 0 { continue }
 
             let mut turn = -1;
             let mut state = self.clone();
