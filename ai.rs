@@ -237,8 +237,20 @@ impl GameState {
 
     }
 
+    fn compute_inc(&mut self) {
+        for (id, factory) in self.factories.iter_mut() {
+            if !factory.is_player() { continue }
+
+            if factory.cyborg_remaining > 15 {
+                factory.cyborg_remaining -= 10;
+                self.commands.push(format!("INC {}", id));
+            }
+        }
+    }
+
     fn defend_strategy(&mut self) {
 
+        // Check if being attacked -> no move
         for (id, factory) in self.factories.iter_mut() {
             if !factory.is_player() { continue }
 
@@ -255,13 +267,10 @@ impl GameState {
                 factory.cyborg_remaining = 0;
             } else {
                 factory.cyborg_remaining -= enemy_count;
-                if factory.cyborg_remaining > 15 {
-                    factory.cyborg_remaining -= 10;
-                    self.commands.push(format!("INC {}", id));
-                }
             }
         }
 
+        // Support another factory
         for (id, factory) in self.factories.iter() {
             if !factory.is_player() { continue }
             if factory.production == 0 { continue }
@@ -287,18 +296,22 @@ impl GameState {
                     if !factory_renfort.is_player() { continue }
                     if factory_renfort.cyborg_remaining < need_cyborg { continue }
 
-                    //factory_renfort.cyborg_remaining -= 10;
                     self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory_renfort.id, factory_end: factory.id, cyborg_count: need_cyborg, turn_remaining: distance});
                 }
 
             }
-
         }
+        for troop in self.troop_commands.iter() {
+            let mut factory_renfort = self.factories.get_mut(&troop.factory_start).unwrap();
+            factory_renfort.cyborg_remaining -= troop.cyborg_count;
+        }
+
+
+        self.compute_inc();
 
         if self.troop_commands.len() == 0 {
             self.neutral_first_strategy();
         }
-
 
 
     }
