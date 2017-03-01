@@ -198,12 +198,30 @@ impl GameState {
 
             if factory.is_player() {
                 for &(distance, id2) in factory.distances.iter() {
-                    let factory2 = factories_immu.get(&id2).unwrap();
-                    if factory2.production > 0 {
+                    let fac_target = factories_immu.get(&id2).unwrap();
+                    if fac_target.production > 0 {
 
-                        if factory2.is_neutral() && factory2.cyborg_count < factory.cyborg_remaining {
-                            self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: factory2.id, cyborg_count: factory2.cyborg_count +1, turn_remaining: distance});
-                            factory.cyborg_remaining -= factory2.cyborg_count +1;
+                        if fac_target.is_neutral() && fac_target.cyborg_count < factory.cyborg_remaining {
+                            let mut is_enemy_closest = false;
+                            // Check if fac_target is the closest
+                            for &(distance, id2) in fac_target.distances.iter() {
+
+                                if id2 == factory.id {
+                                    is_enemy_closest = false;
+                                    break;
+                                }
+
+                                let fac = factories_immu.get(&id2).unwrap();
+                                if fac.is_enemy() {
+                                    is_enemy_closest = true;
+                                    break;
+                                }
+
+                            }
+                            if !is_enemy_closest {
+                                self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: fac_target.id, cyborg_count: fac_target.cyborg_count +1, turn_remaining: distance});
+                                factory.cyborg_remaining -= fac_target.cyborg_count +1;
+                            }
                         }
                     }
                 }
@@ -437,6 +455,7 @@ fn main() {
         let factory_2 = parse_input!(inputs[1], i32);
         let distance = parse_input!(inputs[2], i32);
 
+        print_err!("Id1:{} Id2:{} Distance:{}", factory_1, factory_2, distance);
         game_state.factory_distance.insert((factory_1, factory_2), distance);
     }
     game_state.init_factories_distance(factory_count);
