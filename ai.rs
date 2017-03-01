@@ -172,7 +172,7 @@ impl GameState {
     fn max_strategy(&mut self) {
         let max_factory_option = self.factories.iter()
             .filter(|&(ind, fac)| fac.is_player())
-            .max_by_key(|&(ind, fac)| fac.cyborg_count);
+            .max_by_key(|&(ind, fac)| fac.cyborg_remaining);
 
         if !max_factory_option.is_some() { return }
 
@@ -185,7 +185,7 @@ impl GameState {
             let factory2 = self.factories.get(&id2).unwrap();
             if !factory2.is_player() && factory2.production > 0 {
                 //self.commands.push(format!("MOVE {} {} {}", max_factory.id, id2, max_factory.cyborg_count));
-                self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: max_factory.id, factory_end: id2, cyborg_count: max_factory.cyborg_count, turn_remaining: distance});
+                self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: max_factory.id, factory_end: id2, cyborg_count: max_factory.cyborg_remaining, turn_remaining: distance});
                 break;
             }
         }
@@ -232,6 +232,65 @@ impl GameState {
         if self.troop_commands.len() == 0 {
             self.max_strategy();
         }
+
+    }
+
+    fn defend_strategy(&mut self) {
+
+        for (id, factory) in self.factories.iter_mut() {
+            if !factory.is_player() { continue }
+
+            let mut enemy_count = 0;
+            for troop in self.troops.iter() {
+                if troop.factory_end == factory.id {
+                    if troop.is_enemy() {
+                        enemy_count += troop.cyborg_count;
+                    }
+                }
+            }
+            if enemy_count >= factory.cyborg_count {
+                print_err!("Need defense id:{}", factory.id);
+                factory.cyborg_remaining = 0;
+            }
+        }
+
+        for (id, factory) in self.factories.iter() {
+            if !factory.is_player() { continue }
+
+            let mut turn = -1;
+            let mut state = self.clone();
+            while !state.factories.get(&id).unwrap().is_enemy() && turn < 20 {
+                //print_err!("turn : {} id{} owner{}", turn, state.factories.get(&id).unwrap().id, state.factories.get(&id).unwrap().owner);
+                state.sim_next_turn();
+                turn += 1;
+            }
+            if turn < 20 {
+                let captured_fac = state.factories.get(&id).unwrap();
+                let mut need_cyborg = captured_fac.cyborg_count - turn * captured_fac.production;
+                print_err!("factory {} will captured in {} turns. Defend {}", id, turn, need_cyborg);
+
+                if need_cyborg < 0 { need_cyborg = 2 }
+
+                for &(distance, id2) in factory.distances.iter() {
+                    if distance > turn { break }
+
+                    let mut factory_renfort = self.factories.get(&id2).unwrap();
+                    if !factory_renfort.is_player() { continue }
+                    if factory_renfort.cyborg_remaining < need_cyborg { continue }
+
+                    //factory_renfort.cyborg_remaining -= 10;
+                    self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory_renfort.id, factory_end: factory.id, cyborg_count: need_cyborg, turn_remaining: distance});
+                }
+
+            }
+
+        }
+
+        if self.troop_commands.len() == 0 {
+            self.neutral_first_strategy();
+        }
+
+
 
     }
 
@@ -382,11 +441,13 @@ impl GameState {
             factory.cyborg_count -= troop.cyborg_count;
         }
 
+        /*
         for troop in self.troop_commands.iter_mut() {
             self.troops.push_back(troop.clone());
         }
+        */
         //self.troops.extend(self.troop_commands.iter());
-        //self.troops.append(&mut self.troop_commands);
+        self.troops.append(&mut self.troop_commands);
 
         // Production & Combat
         for (id, factory) in self.factories.iter_mut() {
@@ -419,6 +480,9 @@ impl GameState {
                     } else if factory.cyborg_count > 0 {
                         factory.owner = 1;
                     }
+
+                    //print_err!("Captured id:{} owner:{} count:{}", factory.id, factory.owner, factory.cyborg_count);
+
                 }
 
                 factory.cyborg_count_combat = 0;
@@ -494,7 +558,8 @@ fn main() {
         game_state = max_game;
 
         */
-        game_state.neutral_first_strategy();
+        //game_state.neutral_first_strategy();
+        game_state.defend_strategy();
         game_state.compute_bomb();
         game_state.print_commands();
 
