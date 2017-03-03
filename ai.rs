@@ -231,9 +231,9 @@ impl GameState {
 
         }
 
-        if self.troop_commands.len() == 0 {
+       //if self.troop_commands.len() == 0 {
             self.max_strategy();
-        }
+        //}
 
     }
 
@@ -259,6 +259,10 @@ impl GameState {
                 if troop.factory_end == factory.id {
                     if troop.is_enemy() {
                         enemy_count += troop.cyborg_count;
+                    }
+
+                    if troop.is_player() {
+                        enemy_count -= troop.cyborg_count;
                     }
                 }
             }
@@ -290,7 +294,7 @@ impl GameState {
                 if need_cyborg < 0 { need_cyborg = 2 }
 
                 for &(distance, id2) in factory.distances.iter() {
-                    if distance > turn { break }
+                    //if distance > turn { break }
 
                     let mut factory_renfort = self.factories.get(&id2).unwrap();
                     if !factory_renfort.is_player() { continue }
@@ -307,11 +311,51 @@ impl GameState {
         }
 
 
+
+        { // Send to most exposed factory
+            let mut factory_most_exposed = self.factories.get(&0).unwrap().clone();
+            let mut min_dist = 999;
+            for (id, factory) in self.factories.iter() {
+                if !factory.is_player() { continue }
+
+                for &(distance, id2) in factory.distances.iter() {
+                    let factory2 = self.factories.get(&id2).unwrap();
+
+                    if factory2.is_enemy() {
+                        if distance < min_dist {
+                            min_dist = distance;
+                            factory_most_exposed = factory.clone();
+                        }
+
+                        break;
+                    }
+
+                }
+            }
+
+            for (id, factory) in self.factories.iter_mut() {
+                if !factory.is_player() { continue }
+                if factory.id == factory_most_exposed.id { continue }
+                if factory.cyborg_remaining == 0 { continue }
+
+                if factory.production == 3 {
+                    self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: factory_most_exposed.id, cyborg_count: factory.cyborg_remaining, turn_remaining: 999});
+                    factory.cyborg_remaining = 0;
+                } else if factory.production > 1 {
+                    self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: factory_most_exposed.id, cyborg_count: factory.production - 1, turn_remaining: 999});
+                    factory.cyborg_remaining -= factory.production  - 1;
+                }
+
+            }
+
+            print_err!("Most exposed id: {} ", factory_most_exposed.id);
+        }
+
         self.compute_inc();
 
-        if self.troop_commands.len() == 0 {
+        //if self.troop_commands.len() == 0 {
             self.neutral_first_strategy();
-        }
+        //}
 
 
     }
@@ -335,10 +379,18 @@ impl GameState {
     fn compute_bomb(&mut self) {
         if self.bomb_count == 0 { return }
 
+        let mut factory_prod = 2;
+        for (id, factory) in self.factories.iter() {
+            if factory.is_enemy() && factory.production > 2 {
+                factory_prod = 3;
+                break;
+            }
+        }
+
         // Get the target
         let mut aimed_factory: &Factory = &Factory{id: -99, owner: -99, cyborg_count: -99, production: -99, distances: Vec::new(), cyborg_count_combat: 0, cyborg_remaining: 0};
         for (id, factory) in self.factories.iter() {
-            if factory.is_enemy() && factory.cyborg_count > aimed_factory.cyborg_count && factory.production > 2 && self.bomb_last != factory.id {
+            if factory.is_enemy() && factory.cyborg_count > aimed_factory.cyborg_count && factory.production == factory_prod && self.bomb_last != factory.id {
                 aimed_factory = factory;
             }
         }
