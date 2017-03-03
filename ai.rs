@@ -173,6 +173,7 @@ impl GameState {
     }
 
     fn max_strategy(&mut self) {
+
         let max_factory_option = self.factories.iter()
             .filter(|&(ind, fac)| fac.is_player())
             .max_by_key(|&(ind, fac)| fac.cyborg_remaining);
@@ -195,6 +196,16 @@ impl GameState {
 
     fn targeted_attack_strategy(&mut self) {
 
+        /*
+        { // Dont attack if prod not full
+            let factory_prod_not_max_option = self.factories.iter()
+                .filter(|&(ind, fac)| fac.is_player() && fac.production < 3);
+            if factory_prod_not_max_option.count() > 0 {
+                print_err!("Waiting prod");
+                return;
+            }
+        }
+    */
         let mut min_dist = 999;
         let mut target: i32 = -1 as i32;
         let factories_immu = self.factories.clone();
@@ -218,6 +229,8 @@ impl GameState {
         }
 
         if target == -1 { return }
+
+        print_err!("Targeting attack to {}", target);
 
         for (id, fac) in self.factories.iter_mut() {
             if !fac.is_player() { continue }
@@ -277,14 +290,44 @@ impl GameState {
     fn compute_inc(&mut self) {
         if self.nb_turn == 0 { return }
 
+        let factories_immu = self.factories.clone();
+        let inc_threshold = 15;
+        let mut troops_sent = Vec::new();
         for (id, factory) in self.factories.iter_mut() {
             if !factory.is_player() { continue }
+            if factory.production == 3 { continue }
 
-            if factory.cyborg_remaining > 15 {
+            if factory.cyborg_remaining > inc_threshold {
                 factory.cyborg_remaining -= 10;
                 self.commands.push(format!("INC {}", id));
+            } else {
+
+                // Find a possible troop donator to Inc
+                for &(distance, id2) in factory.distances.iter() {
+
+                    if factory.production * distance > inc_threshold - factory.cyborg_remaining { break }
+
+                    let mut factory_renfort = factories_immu.get(&id2).unwrap();
+
+                    if !factory_renfort.is_player() { continue }
+                    if factory_renfort.production < 3 { continue }
+                    if inc_threshold - factory.cyborg_remaining < factory_renfort.cyborg_remaining {
+                        print_err!("Send help troop to increase {} from {}", factory.id, factory_renfort.id);
+                        self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory_renfort.id, factory_end: factory.id, cyborg_count: inc_threshold - factory.cyborg_remaining, turn_remaining: distance});
+                        troops_sent.push(Troop{id: 999, owner: 1, factory_start: factory_renfort.id, factory_end: factory.id, cyborg_count: inc_threshold - factory.cyborg_remaining, turn_remaining: distance});
+                        // factory_renfort.cyborg_remaining -= 15 - factory.cyborg_remaining
+                        break;
+                    }
+
+                }
+
             }
         }
+        for troop in troops_sent.iter() {
+            let mut factory_renfort = self.factories.get_mut(&troop.factory_start).unwrap();
+            factory_renfort.cyborg_remaining -= troop.cyborg_count;
+        }
+
     }
 
     fn defend_strategy(&mut self) {
@@ -326,14 +369,14 @@ impl GameState {
                 let mut need_cyborg = captured_fac.cyborg_count - turn * captured_fac.production;
                 print_err!("factory {} will captured in {} turns. Defend {}", id, turn, need_cyborg);
 
-                if need_cyborg < 0 { need_cyborg = 2 }
+                if need_cyborg < 0 { need_cyborg *= -1 }
 
                 for &(distance, id2) in factory.distances.iter() {
-                    if distance > turn { break }
+                    //if distance > turn { break }
 
                     let mut factory_renfort = self.factories.get(&id2).unwrap();
                     if !factory_renfort.is_player() { continue }
-                    if factory_renfort.cyborg_remaining < need_cyborg { continue }
+                    //if factory_renfort.cyborg_remaining < need_cyborg { continue }
 
                     self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory_renfort.id, factory_end: factory.id, cyborg_count: need_cyborg, turn_remaining: distance});
                 }
