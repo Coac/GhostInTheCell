@@ -77,7 +77,8 @@ struct GameState {
     bomb_last: i32,
     troop_commands: LinkedList<Troop>,
     start: Instant,
-    nb_turn: i32
+    nb_turn: i32,
+    bombing: bool
 }
 
 
@@ -92,7 +93,8 @@ impl GameState {
             bomb_last: -99,
             troop_commands: LinkedList::new(),
             start: Instant::now(),
-            nb_turn: 0
+            nb_turn: 0,
+            bombing: false
         }
     }
 
@@ -121,6 +123,7 @@ impl GameState {
 
     fn init_entities(&mut self) {
         self.troops.clear();
+        self.bombing = false;
 
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
@@ -145,6 +148,8 @@ impl GameState {
                 factory.cyborg_remaining = factory.cyborg_count;
             } else if entity_type == "TROOP" {
                 self.troops.push_back(Troop{id: entity_id, owner: arg_1, factory_start: arg_2, factory_end: arg_3, cyborg_count: arg_4, turn_remaining: arg_5});
+            } else if entity_type == "BOMB" {
+                if arg_1 == -1 { self.bombing = true }
             }
 
         }
@@ -211,6 +216,20 @@ impl GameState {
         let factories_immu = self.factories.clone();
         for (id, enemy_fac) in self.factories.iter() {
             if !enemy_fac.is_enemy() { continue }
+            if enemy_fac.production == 0 { continue }
+
+            let mut turn = -1;
+            let mut state = self.clone();
+            while !state.factories.get(&id).unwrap().is_player() && turn < 20 {
+                //print_err!("turn : {} id{} owner{}", turn, state.factories.get(&id).unwrap().id, state.factories.get(&id).unwrap().owner);
+                state.sim_next_turn();
+                turn += 1;
+            }
+            if turn < 20 {
+                print_err!("[ATTACK] Will be captured by me id: {} in {} turn", id, turn);
+                continue;
+            }
+
 
             let mut sum_dist = 0;
             for &(distance, id2) in enemy_fac.distances.iter() {
@@ -271,8 +290,14 @@ impl GameState {
 
                             }
                             if !is_enemy_closest {
-                                self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: fac_target.id, cyborg_count: fac_target.cyborg_count +1, turn_remaining: distance});
-                                factory.cyborg_remaining -= fac_target.cyborg_count +1;
+                                if self.bombing {
+                                    self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: fac_target.id, cyborg_count: factory.cyborg_count, turn_remaining: distance});
+                                    factory.cyborg_remaining -= factory.cyborg_count;
+                                } else {
+                                    self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: factory.id, factory_end: fac_target.id, cyborg_count: fac_target.cyborg_count +1, turn_remaining: distance});
+                                    factory.cyborg_remaining -= fac_target.cyborg_count +1;
+                                }
+
                             }
                         }
                     }
@@ -367,7 +392,7 @@ impl GameState {
             if turn < 20 {
                 let captured_fac = state.factories.get(&id).unwrap();
                 let mut need_cyborg = captured_fac.cyborg_count - turn * captured_fac.production;
-                print_err!("factory {} will captured in {} turns. Defend {}", id, turn, need_cyborg);
+                print_err!("[DEFEND] factory {} will captured in {} turns. Defend {}", id, turn, need_cyborg);
 
                 if need_cyborg < 0 { need_cyborg *= -1 }
 
@@ -443,10 +468,11 @@ impl GameState {
     fn compute_bomb(&mut self) {
         if self.bomb_count == 0 { return }
 
-        let mut factory_prod = 2;
+        // Get the max prod
+        let mut factory_prod = 1;
         for (id, factory) in self.factories.iter() {
-            if factory.is_enemy() && factory.production > 2 {
-                factory_prod = 3;
+            if factory.is_enemy() && factory.production > factory_prod {
+                factory_prod = factory.production;
                 break;
             }
         }
@@ -702,7 +728,7 @@ fn main() {
         game_state.print_commands();
 
         game_state.nb_turn += 1;
-
+        
 
         let elapsed = start.elapsed();
         print_err!("Elapsed: {} ms",
