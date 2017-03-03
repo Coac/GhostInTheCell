@@ -76,7 +76,8 @@ struct GameState {
     bomb_count: i32,
     bomb_last: i32,
     troop_commands: LinkedList<Troop>,
-    start: Instant
+    start: Instant,
+    nb_turn: i32
 }
 
 
@@ -90,7 +91,8 @@ impl GameState {
             bomb_count: 2,
             bomb_last: -99,
             troop_commands: LinkedList::new(),
-            start: Instant::now()
+            start: Instant::now(),
+            nb_turn: 0
         }
     }
 
@@ -191,6 +193,44 @@ impl GameState {
 
     }
 
+    fn targeted_attack_strategy(&mut self) {
+
+        let mut min_dist = 999;
+        let mut target: i32 = -1 as i32;
+        let factories_immu = self.factories.clone();
+        for (id, enemy_fac) in self.factories.iter() {
+            if !enemy_fac.is_enemy() { continue }
+
+            let mut sum_dist = 0;
+            for &(distance, id2) in enemy_fac.distances.iter() {
+                let player_fac = factories_immu.get(&id2).unwrap();
+
+                if player_fac.is_player() {
+                    sum_dist += distance;
+                }
+
+            }
+
+            if min_dist > sum_dist {
+                min_dist = sum_dist;
+                target = enemy_fac.id;
+            }
+        }
+
+        if target == -1 { return }
+
+        for (id, fac) in self.factories.iter_mut() {
+            if !fac.is_player() { continue }
+
+            if fac.cyborg_remaining > 0 {
+                self.troop_commands.push_back(Troop{id: 999, owner: 1, factory_start: fac.id, factory_end: target, cyborg_count: fac.cyborg_remaining, turn_remaining: 999});
+                fac.cyborg_remaining = 0;
+            }
+
+        }
+
+    }
+
     fn neutral_first_strategy(&mut self) {
         let factories_immu = self.factories.clone();
         for (id, factory) in self.factories.iter_mut() {
@@ -229,12 +269,14 @@ impl GameState {
         }
 
         if self.troop_commands.len() == 0 {
-            self.max_strategy();
+            self.targeted_attack_strategy();
         }
 
     }
 
     fn compute_inc(&mut self) {
+        if self.nb_turn == 0 { return }
+
         for (id, factory) in self.factories.iter_mut() {
             if !factory.is_player() { continue }
 
@@ -303,6 +345,32 @@ impl GameState {
             factory_renfort.cyborg_remaining -= troop.cyborg_count;
         }
 
+
+
+         // Check if too close enemy potential attack
+        /*
+        let factories_immu = self.factories.clone();
+        for (id, factory) in self.factories.iter_mut() {
+            if !factory.is_player() { continue }
+
+            let mut sum_cyborg_potential = 0;
+            for &(distance, id2) in factory.distances.iter() {
+                if distance > 2 { break }
+                let enemy_factory = factories_immu.get(&id2).unwrap();
+                if enemy_factory.is_enemy() {
+                    sum_cyborg_potential += enemy_factory.cyborg_count;
+                }
+            }
+
+            if sum_cyborg_potential >= factory.cyborg_count {
+                print_err!("Need defense potential attack id:{}", factory.id);
+                factory.cyborg_remaining = 0;
+            } else {
+                factory.cyborg_remaining -= sum_cyborg_potential;
+            }
+
+        }
+        */
 
         self.compute_inc();
 
@@ -589,6 +657,8 @@ fn main() {
         game_state.defend_strategy();
         game_state.compute_bomb();
         game_state.print_commands();
+
+        game_state.nb_turn += 1;
 
 
         let elapsed = start.elapsed();
