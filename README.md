@@ -1,5 +1,5 @@
 # GhostInTheCell
-[Codingame](https://www.codingame.com/leaderboards/challenge/ghost-in-the-cell) Ghost in the Cell AI in Rust for an 1 week contest
+[Codingame](https://www.codingame.com/leaderboards/challenge/ghost-in-the-cell) Ghost in the Cell AI in Rust for an 1 week contest.
 
 ## Rule based AI
 - **Neutral first Strategy** : Target the neutral factory first, useful for the beginning of the game. Capture the factory the faster possible to gain production
@@ -18,3 +18,6 @@
 - Evaluation
 
 Can be upgraded later with a MCTS or a GA.
+
+## Ranking
+[I](https://www.codingame.com/profile/550a92690e6118670db89df548e35d68351909) ended ~385th/3500 global and 2nd Rust with this script.
